@@ -228,8 +228,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         window?.level = .floating
         let screenHeight = (window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 800
-        let maximumResultHeight = max(40, screenHeight - (permissionHelp ? 540 : 440))
-        let hosting = NSHostingController(rootView: TranslationView(text: text, message: message, permissionHelp: permissionHelp, maximumResultHeight: maximumResultHeight, onPin: { [weak self] pinned in
+        // 440/540 reserves chrome including the old 78pt source editor; both text areas now share the leftover height.
+        let maximumContentHeight = max(118, screenHeight - (permissionHelp ? 462 : 362))
+        let hosting = NSHostingController(rootView: TranslationView(text: text, message: message, permissionHelp: permissionHelp, maximumContentHeight: maximumContentHeight, onPin: { [weak self] pinned in
             self?.window?.level = pinned ? .floating : .normal
         }, onClose: { [weak self] in
             self?.window?.orderOut(nil)

@@ -16,7 +16,7 @@
 把 DMG、ZIP 和同名 `.sha256` 文件放在同一个文件夹。在终端进入该文件夹后运行（版本号按实际下载的替换）：
 
 ```bash
-shasum -a 256 -c JiuyiTranslate-1.5.0-macOS-universal.sha256
+shasum -a 256 -c JiuyiTranslate-1.0.0-macOS-universal.sha256
 ```
 
 只下载 DMG 时也可以运行 `shasum -a 256 文件名.dmg`，与校验文件中 DMG 对应的那一行比较。校验和用于检查文件一致性，不等于开发者签名或 Apple 公证。

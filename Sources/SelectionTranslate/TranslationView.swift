@@ -18,6 +18,7 @@ struct TranslationView: View {
     @State private var failure: String?
     @State private var pinned = true
     @State private var expanded = true
+    @State private var sourceContentHeight: CGFloat = 78
     @State private var resultContentHeight: CGFloat = 40
     @State private var copied: String?
     @State private var speaker = AVSpeechSynthesizer()
@@ -27,7 +28,7 @@ struct TranslationView: View {
     let onPin: (Bool) -> Void
     let onClose: () -> Void
     let onSettings: () -> Void
-    let maximumResultHeight: CGFloat
+    let maximumContentHeight: CGFloat
     let onSizeChange: (CGSize) -> Void
 
     private let languages = [("auto", "自动"), ("zh-Hans", "中文（简体）"), ("en", "英语")]
@@ -35,14 +36,14 @@ struct TranslationView: View {
     private let cardHeader = Color(.sRGB, red: 240 / 255, green: 240 / 255, blue: 240 / 255, opacity: 1)
     private let languageBadge = Color(.sRGB, red: 234 / 255, green: 234 / 255, blue: 234 / 255, opacity: 1)
 
-    init(text: String, message: String?, permissionHelp: Bool, maximumResultHeight: CGFloat, onPin: @escaping (Bool) -> Void, onClose: @escaping () -> Void, onSettings: @escaping () -> Void, onSizeChange: @escaping (CGSize) -> Void) {
+    init(text: String, message: String?, permissionHelp: Bool, maximumContentHeight: CGFloat, onPin: @escaping (Bool) -> Void, onClose: @escaping () -> Void, onSettings: @escaping () -> Void, onSizeChange: @escaping (CGSize) -> Void) {
         _text = State(initialValue: text)
         self.message = message
         self.permissionHelp = permissionHelp
         self.onPin = onPin
         self.onClose = onClose
         self.onSettings = onSettings
-        self.maximumResultHeight = maximumResultHeight
+        self.maximumContentHeight = maximumContentHeight
         self.onSizeChange = onSizeChange
     }
 
@@ -65,11 +66,24 @@ struct TranslationView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 ZStack(alignment: .topLeading) {
+                    Text(text.isEmpty ? " " : text)
+                        .font(.system(size: 20))
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .padding(5)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .hidden()
+                        .accessibilityHidden(true)
+                        .onGeometryChange(for: CGFloat.self) { proxy in
+                            proxy.size.height
+                        } action: { height in
+                            sourceContentHeight = ceil(height)
+                        }
                     TextEditor(text: $text)
                         .focused($isSourceFocused)
                         .font(.system(size: 20))
                         .scrollContentBackground(.hidden)
-                        .frame(height: 78)
+                        .scrollDisabled(sourceContentHeight <= sourceEditorHeight + 0.5)
+                        .frame(height: sourceEditorHeight)
                         .accessibilityLabel("原文")
                     if text.isEmpty {
                         // Match the native editor's font metrics and text-container insets.
@@ -77,7 +91,7 @@ struct TranslationView: View {
                             .font(.system(size: 20))
                             .foregroundColor(Color(nsColor: .placeholderTextColor))
                             .scrollContentBackground(.hidden)
-                            .frame(height: 78)
+                            .frame(height: sourceEditorHeight)
                             .disabled(true)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
@@ -143,7 +157,7 @@ struct TranslationView: View {
                                     resultContentHeight = ceil(height)
                                 }
                         }
-                        .frame(height: min(maximumResultHeight, max(40, resultContentHeight)))
+                        .frame(height: resultEditorHeight)
                         if permissionHelp && text.isEmpty && !permissionTrusted {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
@@ -220,6 +234,26 @@ struct TranslationView: View {
         }
         .onAppear { isSourceFocused = true }
         .onDisappear { speaker.stopSpeaking(at: .immediate) }
+    }
+
+    private let minSourceHeight: CGFloat = 78
+    private let minResultHeight: CGFloat = 40
+
+    private var sourceEditorHeight: CGFloat { allocatedHeights.source }
+
+    private var resultEditorHeight: CGFloat { allocatedHeights.result }
+
+    // Grow both text areas with content, then share leftover screen height so the window stays on-screen.
+    private var allocatedHeights: (source: CGFloat, result: CGFloat) {
+        let resultFloor = expanded ? minResultHeight : 0
+        let budget = max(minSourceHeight + resultFloor, maximumContentHeight)
+        let sourceDesired = max(minSourceHeight, sourceContentHeight)
+        let resultDesired = expanded ? max(minResultHeight, resultContentHeight) : 0
+        let extraDemand = (sourceDesired - minSourceHeight) + (resultDesired - resultFloor)
+        let extraBudget = budget - minSourceHeight - resultFloor
+        guard extraDemand > extraBudget else { return (sourceDesired, resultDesired) }
+        let sourceHeight = minSourceHeight + extraBudget * (sourceDesired - minSourceHeight) / extraDemand
+        return (sourceHeight.rounded(.down), (budget - sourceHeight).rounded(.down))
     }
 
     private var resultText: String {
