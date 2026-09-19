@@ -6,7 +6,7 @@ import Translation
 
 final class TranslationPanel: NSPanel {
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    override var canBecomeMain: Bool { false }
     override func cancelOperation(_ sender: Any?) { orderOut(nil) }
 }
 
@@ -14,21 +14,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var window: NSWindow?
     private var settingsWindow: NSWindow?
+    private var translationPinned = false
     private let preferences = AppPreferences()
     private var selectionTask: Task<Void, Never>?
     private var hotKey: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
+    private var translateMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+        NSApp.setActivationPolicy(.regular)
         installMainMenu()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "啾译")
+        statusItem.button?.image = MenuBarIcon.image()
+        statusItem.button?.imagePosition = .imageOnly
+        statusItem.button?.toolTip = "啾译"
+        statusItem.button?.setAccessibilityLabel("啾译")
         let menu = NSMenu()
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版"
         menu.addItem(NSMenuItem(title: "啾译 v\(version) · 中英文互译", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
-        addItem("翻译选中文字  ⌥D", action: #selector(translateSelection), to: menu)
+        translateMenuItem = addItem("翻译选中文字  \(preferences.hotkey.display)", action: #selector(translateSelection), to: menu)
         addItem("输入文字翻译…", action: #selector(manualTranslation), to: menu)
         addItem("设置…", action: #selector(showSettings), to: menu)
         addItem("使用帮助…", action: #selector(openHelp), to: menu)
@@ -44,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSUpdateDynamicServices()
         registerShortcut()
         if !UserDefaults.standard.bool(forKey: "hasLaunched") {
-            show(text: "", message: "选中文字后按 ⌥D 即可翻译。首次使用请从菜单栏授权辅助功能；也可以直接在这里输入或粘贴文字。首次翻译可能需要下载 Apple 语言包。")
+            show(text: "", message: "选中文字后按 \(preferences.hotkey.display) 即可翻译。首次使用请从菜单栏授权辅助功能；也可以直接在这里输入或粘贴文字。首次翻译可能需要下载 Apple 语言包。")
             UserDefaults.standard.set(true, forKey: "hasLaunched")
         }
     }
@@ -82,10 +87,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.mainMenu = mainMenu
     }
 
-    private func addItem(_ title: String, action: Selector, to menu: NSMenu) {
+    @discardableResult
+    private func addItem(_ title: String, action: Selector, to menu: NSMenu) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = self
         menu.addItem(item)
+        return item
     }
 
     private func registerShortcut() {
@@ -101,11 +108,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             delegate.translateSelection()
             return noErr
         }, 1, &eventType, Unmanaged.passUnretained(self).toOpaque(), &eventHandler)
-        let identifier = EventHotKeyID(signature: 0x5354524E, id: 1)
-        let status = RegisterEventHotKey(UInt32(kVK_ANSI_D), UInt32(optionKey), identifier, GetApplicationEventTarget(), 0, &hotKey)
-        if handlerStatus != noErr || status != noErr {
+        preferences.onHotkeyChange = { [weak self] hotkey in
+            self?.translateMenuItem?.title = "翻译选中文字  \(hotkey.display)"
+            self?.bindHotkey()
+        }
+        bindHotkey()
+        if handlerStatus != noErr {
             show(text: "", message: "快捷键注册失败，可能被其他软件占用。请使用菜单栏或右键服务进行翻译。")
         }
+    }
+
+    private func bindHotkey() {
+        if let hotKey { UnregisterEventHotKey(hotKey) }
+        hotKey = nil
+        let hotkey = preferences.hotkey
+        let identifier = EventHotKeyID(signature: 0x5354524E, id: 1)
+        let status = RegisterEventHotKey(hotkey.keyCode, hotkey.carbonModifiers, identifier, GetApplicationEventTarget(), 0, &hotKey)
+        preferences.hotkeyError = status == noErr ? nil : "\(hotkey.display) 可能已被其他软件占用，请换一个组合键。"
     }
 
     @objc private func translateSelection() {
@@ -159,7 +178,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showSelectionUnavailable() {
-        show(text: "", message: "未读取到选中文字。请先在其他应用中选中文字再按 ⌥D。辅助功能和复制取词均未取得文字时，可手动复制后在这里粘贴。")
+        show(text: "", message: "未读取到选中文字。请先在其他应用中选中文字再按 \(preferences.hotkey.display)。辅助功能和复制取词均未取得文字时，可手动复制后在这里粘贴。")
     }
 
     @objc func translateService(_ pasteboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString>) {
@@ -179,17 +198,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showSettings()
+        if window != nil {
+            presentTranslationWindow()
+        } else {
+            manualTranslation()
+        }
         return false
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
     }
 
     @objc private func showSettings() {
         if settingsWindow == nil {
-            let settings = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 448, height: 300), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            // A plain window can never join another app's full-screen space; only a non-activating
+            // floating panel can, which is why the translation panel already shows up there.
+            let settings = TranslationPanel(contentRect: NSRect(x: 0, y: 0, width: 448, height: 300), styleMask: [.titled, .closable, .nonactivatingPanel], backing: .buffered, defer: false)
             settings.title = "啾译设置"
             settings.isReleasedWhenClosed = false
+            settings.isFloatingPanel = true
+            settings.hidesOnDeactivate = false
             settings.level = .floating
-            settings.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+            settings.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             settings.contentViewController = NSHostingController(rootView: SettingsView(preferences: preferences, onPermission: { [weak self] in
                 self?.requestAccessibility()
             }, onQuit: { [weak self] in
@@ -199,11 +230,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }, onTranslate: { [weak self] in
                 self?.manualTranslation()
             }))
-            settings.center()
             settingsWindow = settings
         }
-        settingsWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        guard let settings = settingsWindow else { return }
+        // NSApp.activate would pull the user back to the app's own desktop space, so order the panel
+        // in front where they already are instead.
+        settings.setFrameOrigin(settingsOrigin(for: settings.frame.size))
+        settings.orderFrontRegardless()
+        settings.makeKey()
+    }
+
+    private func settingsOrigin(for size: NSSize) -> NSPoint {
+        let panel = window?.isVisible == true ? window : nil
+        let screen = panel?.screen
+            ?? NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }
+            ?? NSScreen.main
+        let anchor = panel?.frame ?? screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: size.width, height: size.height)
+        var origin = NSPoint(x: anchor.midX - size.width / 2, y: anchor.midY - size.height / 2)
+        if let visible = screen?.visibleFrame.insetBy(dx: 8, dy: 8) {
+            origin.x = max(visible.minX, min(origin.x, visible.maxX - size.width))
+            origin.y = max(visible.minY, min(origin.y, visible.maxY - size.height))
+        }
+        return origin
     }
 
     @objc private func requestAccessibility() {
@@ -214,24 +262,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func show(text: String, message: String?, permissionHelp: Bool = false) {
         if window == nil {
-            let panel = TranslationPanel(contentRect: NSRect(x: 0, y: 0, width: 560, height: 410), styleMask: [.borderless], backing: .buffered, defer: false)
-            panel.title = "啾译"
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
-            panel.isMovableByWindowBackground = true
-            panel.isReleasedWhenClosed = false
-            panel.level = .floating
-            panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-            panel.center()
-            window = panel
+            window = makeTranslationPanel()
         }
-        window?.level = .floating
         let screenHeight = (window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 800
         // 440/540 reserves chrome including the old 78pt source editor; both text areas now share the leftover height.
         let maximumContentHeight = max(118, screenHeight - (permissionHelp ? 462 : 362))
-        let hosting = NSHostingController(rootView: TranslationView(text: text, message: message, permissionHelp: permissionHelp, maximumContentHeight: maximumContentHeight, onPin: { [weak self] pinned in
-            self?.window?.level = pinned ? .floating : .normal
+        let hosting = NSHostingController(rootView: TranslationView(text: text, message: message, permissionHelp: permissionHelp, pinned: translationPinned, shortcut: preferences.hotkey.display, maximumContentHeight: maximumContentHeight, onPin: { [weak self] pinned in
+            self?.translationPinned = pinned
+            self?.applyPin(pinned)
         }, onClose: { [weak self] in
             self?.window?.orderOut(nil)
         }, onSettings: { [weak self] in
@@ -241,8 +279,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }).id(UUID()))
         hosting.sizingOptions = []
         window?.contentViewController = hosting
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        presentTranslationWindow()
+        if window?.isVisible != true {
+            window?.contentViewController = nil
+            window = makeTranslationPanel()
+            window?.contentViewController = hosting
+            presentTranslationWindow()
+        }
+    }
+
+    private func makeTranslationPanel() -> TranslationPanel {
+        let panel = TranslationPanel(contentRect: NSRect(x: 0, y: 0, width: 560, height: 410), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.title = "啾译"
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.isMovableByWindowBackground = true
+        panel.isReleasedWhenClosed = false
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+        panel.center()
+        return panel
+    }
+
+    private func applyPin(_ pinned: Bool) {
+        guard let panel = window as? NSPanel else { return }
+        panel.isFloatingPanel = pinned
+        // isFloatingPanel restores the NSPanel default of hiding on deactivate, so clear it afterwards.
+        panel.hidesOnDeactivate = false
+        panel.level = pinned ? .floating : .normal
+        // moveToActiveSpace only follows this app's own activation, so a pinned panel stays
+        // behind on the old space once another app's window takes over.
+        panel.collectionBehavior = pinned
+            ? [.canJoinAllSpaces, .fullScreenAuxiliary]
+            : [.moveToActiveSpace, .fullScreenAuxiliary]
+        if pinned {
+            panel.orderFrontRegardless()
+        }
+    }
+
+    private func presentTranslationWindow() {
+        guard let window else { return }
+        applyPin(translationPinned)
+        window.orderFrontRegardless()
+        window.makeKey()
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
@@ -265,6 +345,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let hotKey { UnregisterEventHotKey(hotKey) }
         if let eventHandler { RemoveEventHandler(eventHandler) }
     }
+}
+
+if CommandLine.arguments.contains("--self-check") {
+    Hotkey.selfCheck()
+    print("hotkey self-check OK")
+    exit(0)
 }
 
 let application = NSApplication.shared

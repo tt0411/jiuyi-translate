@@ -12,7 +12,6 @@
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
     <key>LSMinimumSystemVersion</key><string>15.0</string>
-    <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSServices</key>
     <array><dict>

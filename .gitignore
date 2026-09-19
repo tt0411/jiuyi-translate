@@ -2,6 +2,7 @@
 dist/
 .DS_Store
 .swiftpm/
+status-cache.json
 *.log
 *.p12
 *.p8

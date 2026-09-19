@@ -16,7 +16,7 @@ struct TranslationView: View {
     @State private var requestID = UUID()
     @State private var busy = false
     @State private var failure: String?
-    @State private var pinned = true
+    @State private var pinned = false
     @State private var expanded = true
     @State private var sourceContentHeight: CGFloat = 78
     @State private var resultContentHeight: CGFloat = 40
@@ -25,6 +25,7 @@ struct TranslationView: View {
     @State private var permissionTrusted = AXIsProcessTrusted()
     let permissionHelp: Bool
     let message: String?
+    let shortcut: String
     let onPin: (Bool) -> Void
     let onClose: () -> Void
     let onSettings: () -> Void
@@ -36,10 +37,12 @@ struct TranslationView: View {
     private let cardHeader = Color(.sRGB, red: 240 / 255, green: 240 / 255, blue: 240 / 255, opacity: 1)
     private let languageBadge = Color(.sRGB, red: 234 / 255, green: 234 / 255, blue: 234 / 255, opacity: 1)
 
-    init(text: String, message: String?, permissionHelp: Bool, maximumContentHeight: CGFloat, onPin: @escaping (Bool) -> Void, onClose: @escaping () -> Void, onSettings: @escaping () -> Void, onSizeChange: @escaping (CGSize) -> Void) {
+    init(text: String, message: String?, permissionHelp: Bool, pinned: Bool, shortcut: String, maximumContentHeight: CGFloat, onPin: @escaping (Bool) -> Void, onClose: @escaping () -> Void, onSettings: @escaping () -> Void, onSizeChange: @escaping (CGSize) -> Void) {
         _text = State(initialValue: text)
+        _pinned = State(initialValue: pinned)
         self.message = message
         self.permissionHelp = permissionHelp
+        self.shortcut = shortcut
         self.onPin = onPin
         self.onClose = onClose
         self.onSettings = onSettings
@@ -49,13 +52,16 @@ struct TranslationView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            HStack {
+            HStack(spacing: 8) {
                 icon(pinned ? "pin.fill" : "pin", label: pinned ? "取消置顶" : "置顶窗口") {
                     pinned.toggle()
                     onPin(pinned)
                 }
                 Spacer()
-                Text("⌥D").font(.caption).foregroundStyle(.tertiary)
+                Text(shortcut)
+                    .font(.system(size: 13, weight: .medium))
+                    .fixedSize()
+                    .frame(minWidth: 28, minHeight: 28)
                 icon("gearshape", label: "设置", action: onSettings)
                 icon("arrow.clockwise", label: "重新翻译") { translate() }
                     .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -87,7 +93,7 @@ struct TranslationView: View {
                         .accessibilityLabel("原文")
                     if text.isEmpty {
                         // Match the native editor's font metrics and text-container insets.
-                        TextEditor(text: .constant("输入或粘贴文字，也可选中文字后按 ⌥D"))
+                        TextEditor(text: .constant("输入或粘贴文字，也可选中文字后按 \(shortcut)"))
                             .font(.system(size: 20))
                             .foregroundColor(Color(nsColor: .placeholderTextColor))
                             .scrollContentBackground(.hidden)
@@ -159,20 +165,15 @@ struct TranslationView: View {
                         }
                         .frame(height: resultEditorHeight)
                         if permissionHelp && text.isEmpty && !permissionTrusted {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Button("请求授权") {
-                                        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-                                        permissionTrusted = AXIsProcessTrustedWithOptions(options)
-                                    }
-                                    Button("检查权限") { permissionTrusted = AXIsProcessTrusted() }
-                                    Button("定位当前应用") {
-                                        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
-                                    }
+                            HStack {
+                                Button("请求授权") {
+                                    let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+                                    permissionTrusted = AXIsProcessTrustedWithOptions(options)
                                 }
-                                Text("当前运行：\(Bundle.main.bundlePath)")
-                                    .font(.caption).foregroundStyle(.secondary)
-                                    .textSelection(.enabled)
+                                Button("检查权限") { permissionTrusted = AXIsProcessTrusted() }
+                                Button("定位当前应用") {
+                                    NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+                                }
                             }
                         }
                         HStack(spacing: 16) {
@@ -262,15 +263,25 @@ struct TranslationView: View {
         if !translated.isEmpty { return translated }
         if permissionHelp {
             return permissionTrusted
-                ? "辅助功能已授权。回到原来的应用，重新选中文字后按 ⌥D。"
-                : "系统尚未认可当前运行版本的授权。若设置中已经开启，请移除旧的“啾译”条目，再用下方“定位当前应用”找到这一份应用并重新添加、开启。然后退出并重新打开应用。"
+                ? "辅助功能已授权。回到原来的应用，重新选中文字后按 \(shortcut)。"
+                : "划词翻译需要辅助功能权限。请点击「请求授权」，在系统设置中开启「啾译」。若已开启仍无效，先移除旧的「啾译」，再点「定位当前应用」重新添加。"
         }
         return message ?? "仅支持中英文互译。首次使用可能需要下载中文和英语语言包。"
     }
 
     private func icon(_ name: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { Image(systemName: name).font(.system(size: 19)).frame(width: 24, height: 24) }
-            .buttonStyle(.plain).help(label).accessibilityLabel(label)
+        Button(action: action) {
+            Image(systemName: name)
+                .resizable()
+                .scaledToFit()
+                .symbolRenderingMode(.monochrome)
+                .frame(width: 16, height: 16)
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
     }
 
     private func languageMenu(selection: Binding<String>, automatic: String) -> some View {
