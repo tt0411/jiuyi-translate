@@ -4,8 +4,8 @@
 <dict>
     <key>CFBundleExecutable</key><string>SelectionTranslate</string>
     <key>CFBundleIdentifier</key><string>local.selectiontranslate.app</string>
-    <key>CFBundleName</key><string>划词翻译</string>
-    <key>CFBundleDisplayName</key><string>划词翻译</string>
+    <key>CFBundleName</key><string>啾译</string>
+    <key>CFBundleDisplayName</key><string>啾译</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.5.0</string>
     <key>CFBundleVersion</key><string>10</string>

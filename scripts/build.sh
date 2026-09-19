@@ -18,8 +18,8 @@ done
 mkdir -p dist
 staging="$(mktemp -d "$PWD/dist/.app-build.XXXXXX")"
 trap 'rm -rf "$staging"' EXIT
-staged_app="$staging/划词翻译.app"
-app_path="$PWD/dist/划词翻译.app"
+staged_app="$staging/啾译.app"
+app_path="$PWD/dist/啾译.app"
 mkdir -p "$staged_app/Contents/MacOS" "$staged_app/Contents/Resources"
 if [[ "$architecture" == universal ]]; then
     xcrun lipo -create "${binaries[@]}" -output "$staged_app/Contents/MacOS/SelectionTranslate"

@@ -23,10 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         installMainMenu()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "划词翻译")
+        statusItem.button?.image = NSImage(systemSymbolName: "character.bubble", accessibilityDescription: "啾译")
         let menu = NSMenu()
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版"
-        menu.addItem(NSMenuItem(title: "划词翻译 v\(version) · 中英文互译", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "啾译 v\(version) · 中英文互译", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
         addItem("翻译选中文字  ⌥D", action: #selector(translateSelection), to: menu)
         addItem("输入文字翻译…", action: #selector(manualTranslation), to: menu)
@@ -34,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         addItem("使用帮助…", action: #selector(openHelp), to: menu)
         menu.addItem(.separator())
         addItem("授权辅助功能…", action: #selector(requestAccessibility), to: menu)
-        addItem("退出划词翻译", action: #selector(quit), to: menu)
+        addItem("退出啾译", action: #selector(quit), to: menu)
         statusItem.menu = menu
         preferences.onVisibilityChange = { [weak self] visible in
             self?.statusItem.isVisible = visible
@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func installMainMenu() {
         let mainMenu = NSMenu()
         let appMenuItem = NSMenuItem()
-        let appMenu = NSMenu(title: "划词翻译")
+        let appMenu = NSMenu(title: "啾译")
         let inputItem = NSMenuItem(title: "输入文字翻译…", action: #selector(manualTranslation), keyEquivalent: "n")
         inputItem.target = self
         appMenu.addItem(inputItem)
@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsItem.target = self
         appMenu.addItem(settingsItem)
         appMenu.addItem(.separator())
-        let quitItem = NSMenuItem(title: "退出划词翻译", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "退出啾译", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         appMenu.addItem(quitItem)
         appMenuItem.submenu = appMenu
@@ -186,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showSettings() {
         if settingsWindow == nil {
             let settings = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 448, height: 300), styleMask: [.titled, .closable], backing: .buffered, defer: false)
-            settings.title = "划词翻译设置"
+            settings.title = "啾译设置"
             settings.isReleasedWhenClosed = false
             settings.level = .floating
             settings.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
@@ -215,7 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func show(text: String, message: String?, permissionHelp: Bool = false) {
         if window == nil {
             let panel = TranslationPanel(contentRect: NSRect(x: 0, y: 0, width: 560, height: 410), styleMask: [.borderless], backing: .buffered, defer: false)
-            panel.title = "划词翻译"
+            panel.title = "啾译"
             panel.isOpaque = false
             panel.backgroundColor = .clear
             panel.hasShadow = true

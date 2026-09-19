@@ -11,7 +11,7 @@
 ```bash
 swift build
 bash scripts/build.sh
-open "dist/划词翻译.app"
+open "dist/啾译.app"
 ```
 
 仅在构建工具运行于不允许嵌套沙盒的受限环境时，可在脚本后传 `--disable-sandbox`。它只影响 SwiftPM 构建过程，不改变系统安全设置或应用权限。
@@ -57,7 +57,7 @@ cp .build/AppIcon.iconset/icon_256x256@2x.png Resources/AppIcon.png
 
 1. 更新 `Resources/Info.plist` 的版本和构建号、`CHANGELOG.md`、`docs/RELEASE_NOTES.md`。
 2. 运行 `bash scripts/package.sh`，确认 `codesign --verify --strict`、`hdiutil verify`、ZIP 校验通过。
-3. 检查 `lipo -archs dist/划词翻译.app/Contents/MacOS/SelectionTranslate`，Universal 应含两种架构。
+3. 检查 `lipo -archs dist/啾译.app/Contents/MacOS/SelectionTranslate`，Universal 应含两种架构。
 4. 实测：启动、手动粘贴、中英互译、长文滚动、辅助功能取词、网页复制兜底、设置入口；自启动需单独进行注销/登录测试。
 5. 确认 DMG 拖拽安装、安装说明及帮助页面正确。记录哪些平台或流程尚未实测。
 6. 确认签名/公证声明与实际一致，确认源码许可证已由项目所有者选择。

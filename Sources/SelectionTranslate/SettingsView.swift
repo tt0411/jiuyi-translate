@@ -17,7 +17,7 @@ final class AppPreferences: ObservableObject {
         case .enabled:
             return "已启用：登录 Mac 后自动在后台运行，⌥D 可直接翻译。"
         case .requiresApproval:
-            return "等待系统批准：请打开系统登录项，允许“划词翻译”自动启动。"
+            return "等待系统批准：请打开系统登录项，允许“啾译”自动启动。"
         case .notRegistered:
             return "开启后，登录 Mac 时自动启动。隐藏菜单栏图标不影响自启动。"
         case .notFound:
@@ -99,7 +99,7 @@ struct SettingsView: View {
                 Spacer()
                 Button("退出应用", action: onQuit)
             }
-            Text("划词翻译 v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版") · 中英文互译")
+            Text("啾译 v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版") · 中英文互译")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(24)

@@ -26,7 +26,7 @@ jobs:
         run: bash scripts/package.sh
       - name: Verify architectures and checksums
         run: |
-          xcrun lipo "dist/划词翻译.app/Contents/MacOS/SelectionTranslate" -verify_arch arm64 x86_64
+          xcrun lipo "dist/啾译.app/Contents/MacOS/SelectionTranslate" -verify_arch arm64 x86_64
           cd dist
           shasum -a 256 -c ./*.sha256
       - uses: actions/upload-artifact@v4
@@ -53,8 +53,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: >-
-          gh release create "$RELEASE_TAG" downloads/*
-          --verify-tag --draft --prerelease
-          --title "划词翻译 $RELEASE_TAG · 公开预览版"
-          --notes-file docs/RELEASE_NOTES.md
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; skip draft creation."
+            exit 0
+          fi
+          gh release create "$RELEASE_TAG" downloads/* \
+            --verify-tag --draft --prerelease \
+            --title "啾译 $RELEASE_TAG · 公开预览版" \
+            --notes-file docs/RELEASE_NOTES.md

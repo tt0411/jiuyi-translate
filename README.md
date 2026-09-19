@@ -1,5 +1,5 @@
-<p align="center"><img src="Resources/AppIcon.png" width="104" alt="划词翻译图标"></p>
-<h1 align="center">划词翻译 · SelectionTranslate</h1>
+<p align="center"><img src="Resources/AppIcon.png" width="104" alt="啾译图标"></p>
+<h1 align="center">啾译 · JiuyiTranslate</h1>
 <p align="center">选中文字，按 ⌥D。用 Apple 系统翻译，轻松中英互译。</p>
 
 轻量原生 macOS 翻译工具，无需注册账户或配置 API Key。提供原文与译文一体的浮窗，适合阅读英文网页、文档和代码中的单词。
@@ -9,17 +9,17 @@
 ## 下载与安装
 
 <!-- download-links -->
-从本仓库右侧 **Releases** 下载 `SelectionTranslate-版本号-macOS-universal.dmg`，不要下载 GitHub 自动生成的 Source code 压缩包。
+从本仓库右侧 **Releases** 下载 `JiuyiTranslate-版本号-macOS-universal.dmg`，不要下载 GitHub 自动生成的 Source code 压缩包。
 <!-- /download-links -->
 
 - **系统要求**：macOS 15 或更高版本。
 - **架构**：Universal 包含 Apple silicon（M 系列）和 Intel 两种架构；日常功能在 Apple silicon 上验证，Intel 尚未实机验证。
 - **语言**：仅中文和英语；首次翻译可能需要联网下载 Apple 语言包。
 
-1. 打开 DMG，将 **划词翻译.app** 拖入旁边的 **Applications（应用程序）** 文件夹。
+1. 打开 DMG，将 **啾译.app** 拖入旁边的 **Applications（应用程序）** 文件夹。
 2. 从“应用程序”打开软件，随后可推出 DMG。不要一直在安装镜像内运行。
 3. 若提示无法验证开发者，确认文件来自本仓库后，按照 [Apple 官方说明](https://support.apple.com/zh-cn/102445) 在“系统设置 → 隐私与安全性”中处理“仍要打开”。不需要关闭系统安全保护。
-4. 在菜单栏的翻译图标中选择 **授权辅助功能**，允许“划词翻译”读取已选中文字。只使用手动输入、粘贴翻译时无需该权限。
+4. 在菜单栏的翻译图标中选择 **授权辅助功能**，允许“啾译”读取已选中文字。只使用手动输入、粘贴翻译时无需该权限。
 5. 在其他应用中选中文字，按 **⌥D（Option + D）**，松开按键，等待译文。
 
 ZIP 包可用于不便打开 DMG 的情况：解压后同样把应用放入“应用程序”。Release 中的 `.sha256` 文件可用于验证下载是否完整，详见[安装与故障排查](docs/INSTALL.md)。
@@ -79,7 +79,7 @@ ZIP 包可用于不便打开 DMG 的情况：解压后同样把应用放入“�
 
 ```bash
 bash scripts/build.sh
-open "dist/划词翻译.app"
+open "dist/啾译.app"
 ```
 
 生成 Universal DMG、ZIP 与校验文件：
