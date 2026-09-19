@@ -1,0 +1,60 @@
+name: Build macOS packages
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check toolchain and version
+        run: |
+          xcodebuild -version
+          swift --version
+          version="$(plutil -extract CFBundleShortVersionString raw Resources/Info.plist)"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$GITHUB_REF_NAME" = "v$version"
+          fi
+          bash -n scripts/build.sh scripts/package.sh
+      - name: Build Universal DMG and ZIP
+        run: bash scripts/package.sh
+      - name: Verify architectures and checksums
+        run: |
+          xcrun lipo "dist/划词翻译.app/Contents/MacOS/SelectionTranslate" -verify_arch arm64 x86_64
+          cd dist
+          shasum -a 256 -c ./*.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macOS-downloads
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+  release-draft:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: macOS-downloads
+          path: downloads
+      - name: Create preview draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          gh release create "$RELEASE_TAG" downloads/*
+          --verify-tag --draft --prerelease
+          --title "划词翻译 $RELEASE_TAG · 公开预览版"
+          --notes-file docs/RELEASE_NOTES.md

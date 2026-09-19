@@ -1,0 +1,37 @@
+name: 问题反馈
+description: 报告安装、取词或翻译问题
+title: '[问题] '
+body:
+  - type: markdown
+    attributes:
+      value: 请先阅读 README 的常见问题。不要上传密码、令牌、私人剪贴板内容；截图请遮挡个人信息。
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本
+      description: 设置窗口底部可查看版本号。
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: macOS 版本与芯片
+      placeholder: 例如 macOS 15.7 / Apple M2
+    validations:
+      required: true
+  - type: input
+    id: source-app
+    attributes:
+      label: 使用的软件或浏览器
+      description: 若与网页取词有关，请填写浏览器版本及可公开的测试页面。
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤、预期结果与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: 错误提示或截图
+      description: 截图请遮挡私人信息。
