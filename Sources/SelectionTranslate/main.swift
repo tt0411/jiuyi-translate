@@ -157,12 +157,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             readSelectionByCopy(from: sourceApp)
             return
         }
+        // Browsers drop block boundaries from AXSelectedText, so a long selection without a newline
+        // is almost certainly several paragraphs glued together. Re-read it with ⌘C, which keeps them.
+        if selected.count >= 200, !selected.contains(where: \.isNewline) {
+            readSelectionByCopy(from: sourceApp, flattened: selected)
+            return
+        }
         show(text: selected, message: nil)
     }
 
-    private func readSelectionByCopy(from sourceApp: NSRunningApplication?) {
+    private func readSelectionByCopy(from sourceApp: NSRunningApplication?, flattened: String? = nil) {
         guard let sourceApp else {
-            showSelectionUnavailable()
+            if let flattened { show(text: flattened, message: nil) } else { showSelectionUnavailable() }
             return
         }
         selectionTask = Task { @MainActor [weak self] in
@@ -171,8 +177,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.selectionTask = nil
             switch result {
             case .text(let text): self.show(text: text, message: nil)
-            case .unavailable: self.showSelectionUnavailable()
-            case .cancelled: break
+            case .unavailable:
+                if let flattened { self.show(text: flattened, message: nil) } else { self.showSelectionUnavailable() }
+            case .cancelled:
+                if let flattened { self.show(text: flattened, message: nil) }
             }
         }
     }
@@ -265,8 +273,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window = makeTranslationPanel()
         }
         let screenHeight = (window?.screen ?? NSScreen.main)?.visibleFrame.height ?? 800
-        // 440/540 reserves chrome including the old 78pt source editor; both text areas now share the leftover height.
-        let maximumContentHeight = max(118, screenHeight - (permissionHelp ? 462 : 362))
+        // Keep the panel a floating card rather than a full-height window: the two text areas share
+        // whatever 85% of the screen leaves after the measured chrome, and scroll beyond that.
+        let maximumContentHeight = max(118, screenHeight * 0.85 - (permissionHelp ? 434 : 334))
         let hosting = NSHostingController(rootView: TranslationView(text: text, message: message, permissionHelp: permissionHelp, pinned: translationPinned, shortcut: preferences.hotkey.display, maximumContentHeight: maximumContentHeight, onPin: { [weak self] pinned in
             self?.translationPinned = pinned
             self?.applyPin(pinned)

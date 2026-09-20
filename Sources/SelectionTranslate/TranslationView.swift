@@ -84,6 +84,9 @@ struct TranslationView: View {
                         } action: { height in
                             sourceContentHeight = ceil(height)
                         }
+                        // hidden() still reserves space, so the probe would stretch the card past the
+                        // clamped editor once the text is taller than its allowance.
+                        .frame(height: 0, alignment: .top)
                     TextEditor(text: $text)
                         .focused($isSourceFocused)
                         .font(.system(size: 20))
@@ -254,7 +257,20 @@ struct TranslationView: View {
         let extraBudget = budget - minSourceHeight - resultFloor
         guard extraDemand > extraBudget else { return (sourceDesired, resultDesired) }
         let sourceHeight = minSourceHeight + extraBudget * (sourceDesired - minSourceHeight) / extraDemand
-        return (sourceHeight.rounded(.down), (budget - sourceHeight).rounded(.down))
+        return (wholeLines(sourceHeight, content: sourceContentHeight, inset: 10),
+                wholeLines(budget - sourceHeight, content: resultContentHeight, inset: 0))
+    }
+
+    private static let lineHeight: CGFloat = {
+        let font = NSFont.systemFont(ofSize: 20)
+        return ceil(font.ascender - font.descender + font.leading)
+    }()
+
+    // AppKit line metrics can differ from SwiftUI by about a point; that only ever leaves a hairline.
+    private func wholeLines(_ height: CGFloat, content: CGFloat, inset: CGFloat) -> CGFloat {
+        guard content > height else { return height.rounded(.down) }
+        let lines = max(1, ((height - inset) / Self.lineHeight).rounded(.down))
+        return lines * Self.lineHeight + inset
     }
 
     private var resultText: String {
