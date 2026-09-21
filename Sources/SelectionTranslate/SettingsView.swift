@@ -75,6 +75,7 @@ extension Hotkey {
 final class AppPreferences: ObservableObject {
     private let defaults: UserDefaults
     var onVisibilityChange: ((Bool) -> Void)?
+    var onDockVisibilityChange: ((Bool) -> Void)?
     var onHotkeyChange: ((Hotkey) -> Void)?
     @Published private(set) var loginStatus = SMAppService.mainApp.status
     @Published private(set) var loginError: String?
@@ -123,6 +124,13 @@ final class AppPreferences: ObservableObject {
         }
     }
 
+    @Published var showDockIcon: Bool {
+        didSet {
+            defaults.set(showDockIcon, forKey: "showDockIcon")
+            onDockVisibilityChange?(showDockIcon)
+        }
+    }
+
     @Published var hotkey: Hotkey {
         didSet {
             hotkey.save(to: defaults)
@@ -134,9 +142,27 @@ final class AppPreferences: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        defaults.register(defaults: ["showMenuBarIcon": true])
+        defaults.register(defaults: ["showMenuBarIcon": true, "showDockIcon": true])
         showMenuBarIcon = defaults.bool(forKey: "showMenuBarIcon")
+        showDockIcon = defaults.bool(forKey: "showDockIcon")
         hotkey = Hotkey.load(from: defaults)
+    }
+
+    /// Run with: swift run SelectionTranslate --self-check
+    static func selfCheck() {
+        let suite = "dock-icon-self-check"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let prefs = AppPreferences(defaults: defaults)
+        precondition(prefs.showDockIcon, "dock icon defaults to visible")
+        var observed: Bool?
+        prefs.onDockVisibilityChange = { observed = $0 }
+        prefs.showDockIcon = false
+        precondition(observed == false, "hiding the dock icon must notify")
+        precondition(defaults.object(forKey: "showDockIcon") as? Bool == false, "hidden dock icon must be stored")
+        let reloaded = AppPreferences(defaults: defaults)
+        precondition(!reloaded.showDockIcon, "hidden dock icon must persist")
+        defaults.removePersistentDomain(forName: suite)
     }
 }
 
@@ -207,8 +233,14 @@ struct SettingsView: View {
                 .toggleStyle(.switch)
             Text("隐藏图标后，应用仍在后台运行，选中文字按 \(preferences.hotkey.display) 即可翻译。设置会在下次启动时保留。")
                 .foregroundStyle(.secondary)
-            Text("可从翻译窗口右上角的齿轮打开设置；也可以点击 Dock 图标打开翻译窗口。")
+            Toggle("在 Dock 栏显示图标", isOn: $preferences.showDockIcon)
+                .toggleStyle(.switch)
+            Text("关闭后 Dock 与程序切换器中不再显示啾译，应用仍在后台运行；可从翻译窗口右上角的齿轮重新打开设置。")
                 .foregroundStyle(.secondary)
+            if preferences.showDockIcon {
+                Text("点击 Dock 图标可直接打开翻译窗口。")
+                    .foregroundStyle(.secondary)
+            }
             Divider()
             Toggle("登录时自动启动", isOn: Binding(
                 get: { preferences.launchAtLoginRequested },

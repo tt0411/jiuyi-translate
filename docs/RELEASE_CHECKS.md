@@ -7,7 +7,7 @@
 | `SelectionTranslate --self-check` | 通过 |
 | Universal 合并及两种架构检查 | 通过：`x86_64 arm64` |
 | 应用临时签名完整性 | 通过；不是 Developer ID 签名或公证 |
-| Info.plist 版本 | `CFBundleShortVersionString` 1.0.0，`CFBundleVersion` 1；无 `LSUIElement` |
+| Info.plist 版本 | `CFBundleShortVersionString` 1.0.0，`CFBundleVersion` 1；无 `LSUIElement`（Dock 图标可见，面板以不激活方式弹出） |
 | DMG 创建、`hdiutil verify`、只读挂载 | 通过 |
 | DMG 内 Applications 快捷入口、应用签名、安装说明、帮助文件 | 通过 |
 | ZIP 完整性与 DMG/ZIP 的 SHA-256 | 通过 |

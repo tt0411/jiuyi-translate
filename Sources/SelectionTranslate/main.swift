@@ -10,6 +10,18 @@ final class TranslationPanel: NSPanel {
     override func cancelOperation(_ sender: Any?) { orderOut(nil) }
 }
 
+enum DockIconVisibility {
+    static func activationPolicy(visible: Bool) -> NSApplication.ActivationPolicy {
+        visible ? .regular : .accessory
+    }
+
+    static func selfCheck() {
+        precondition(activationPolicy(visible: true) == .regular)
+        precondition(activationPolicy(visible: false) == .accessory)
+        AppPreferences.selfCheck()
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var window: NSWindow?
@@ -21,8 +33,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var eventHandler: EventHandlerRef?
     private var translateMenuItem: NSMenuItem?
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        applyDockVisibility(preferences.showDockIcon)
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.regular)
         installMainMenu()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = MenuBarIcon.image()
@@ -45,6 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.statusItem.isVisible = visible
         }
         statusItem.isVisible = preferences.showMenuBarIcon
+        preferences.onDockVisibilityChange = { [weak self] visible in
+            self?.applyDockVisibility(visible)
+        }
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
         registerShortcut()
@@ -214,6 +232,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // An accessory app that becomes active reappears in the Dock. Keep it inactive so the
+        // hidden-icon preference actually sticks while panels stay on screen.
+        guard !preferences.showDockIcon else { return }
+        NSApp.deactivate()
+    }
+
+    /// Shows or hides the Dock tile. Switching to `.accessory` while this app is active leaves a
+    /// ghost Dock icon, so drop activation first; switching to `.regular` would steal focus, so give
+    /// it back. Visible panels are restored because a policy change can order them out.
+    private func applyDockVisibility(_ visible: Bool) {
+        let policy = DockIconVisibility.activationPolicy(visible: visible)
+        let previous = NSWorkspace.shared.frontmostApplication
+        let visibleWindows = NSApp.windows.filter(\.isVisible)
+        if policy == .accessory, NSApp.isActive {
+            NSApp.deactivate()
+        }
+        NSApp.setActivationPolicy(policy)
+        restoreFrontmost(previous)
+        for window in visibleWindows {
+            window.orderFrontRegardless()
+        }
+    }
+
+    /// Shows a panel without making 啾译 the active app. That would highlight (or, when the Dock
+    /// icon is hidden, resurrect) the Dock tile; the source app should stay frontmost.
+    private func presentNonActivating(_ panel: NSWindow, makeKey: Bool = true) {
+        let previous = NSWorkspace.shared.frontmostApplication
+        panel.orderFrontRegardless()
+        if makeKey {
+            panel.makeKey()
+        }
+        restoreFrontmost(previous)
+    }
+
+    private func restoreFrontmost(_ previous: NSRunningApplication?) {
+        guard NSApp.isActive else { return }
+        if let previous, previous != NSRunningApplication.current {
+            previous.activate()
+        } else {
+            NSApp.deactivate()
+        }
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }
@@ -244,8 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // NSApp.activate would pull the user back to the app's own desktop space, so order the panel
         // in front where they already are instead.
         settings.setFrameOrigin(settingsOrigin(for: settings.frame.size))
-        settings.orderFrontRegardless()
-        settings.makeKey()
+        presentNonActivating(settings)
     }
 
     private func settingsOrigin(for size: NSSize) -> NSPoint {
@@ -330,8 +391,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func presentTranslationWindow() {
         guard let window else { return }
         applyPin(translationPinned)
-        window.orderFrontRegardless()
-        window.makeKey()
+        presentNonActivating(window)
     }
 
     @objc private func quit() { NSApp.terminate(nil) }
@@ -358,11 +418,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 if CommandLine.arguments.contains("--self-check") {
     Hotkey.selfCheck()
+    DockIconVisibility.selfCheck()
     print("hotkey self-check OK")
     exit(0)
 }
 
 let application = NSApplication.shared
+let showDockIcon = UserDefaults.standard.object(forKey: "showDockIcon") as? Bool ?? true
+application.setActivationPolicy(DockIconVisibility.activationPolicy(visible: showDockIcon))
 let delegate = AppDelegate()
 application.delegate = delegate
 application.run()
